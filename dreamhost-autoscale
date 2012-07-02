@@ -1,0 +1,145 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use Getopt::Long;
+use WWW::DreamHost::API;
+
+my %opt = (
+    minimum => 300,
+    maximum => 600,
+    key => '',
+    ps  => '',
+);
+
+GetOptions(
+    \%opt,
+    'minimum|min=i',
+    'maximum|max=i',
+    'key|k=s',
+    'ps|p=s',
+    'dry_run|dry',
+);
+
+my $API_KEY = $opt{key} || $ENV{DREAMHOST_API_KEY} || die "Please specify the API key\n";
+my $ps      = $opt{ps}  || die "Please specify the ps\n";
+
+my $dreamhost = WWW::DreamHost::API->new($API_KEY);
+
+my $usage = $dreamhost->command( 'dreamhost_ps-list_usage', ps => $ps );
+check($usage);
+
+my $size  = $dreamhost->command( 'dreamhost_ps-list_size_history', ps => $ps );
+check($size);
+
+my $used_memory       = $usage->{data}->[0]->{memory_mb};
+my $configured_memory = $size->{data}->[-1]->{memory_mb};
+
+my $new_size = resize( $used_memory, $configured_memory );
+
+if ($new_size == $configured_memory) {
+    warn "Nothing to do!\n";
+    exit;
+}
+
+if ($opt{dry_run}) {
+    print "configured: $configured_memory\nused: $used_memory\nnew size: $new_size\n";
+    exit;
+}
+
+my $rv = $dreamhost->command( 'dreamhost_ps-set_size', ps => $ps, size => $new_size );
+check($rv);
+
+# if everything goes ok, exit silently
+exit;
+
+sub check {
+    my $res = shift;
+    if ($res->{result} eq 'error') {
+        die "Error: ", $res->{data}, "\n";
+    }
+}
+
+sub resize {
+    my ( $used, $configured ) = @_;
+
+    # put 25% more memory than actually used
+    my $new = $used * 1.25;
+
+    # but make sure it is within desired limits
+    if ( $new < $opt{minimum} ) {
+        $new = $opt{minimum};
+    }
+    elsif ( $new > $opt{maximum} ) {
+        $new = $opt{maximum};
+    }
+
+    # round to the nearest 50mb
+    return int($new/50)*50;
+}
+
+__END__
+
+=head1 NAME
+
+dreamhost-autoscale - auto-scale dreamhost vps memory
+
+=head1 DESCRIPTION
+
+This tool was designed to auto-scale dreamhost virtual private servers, within
+predetermined memory limits.
+
+To be able to use it you need a DreamHost API key, which can be obtained here:
+
+https://panel.dreamhost.com/index.cgi?tree=home.api
+
+=head1 USAGE
+
+    dreamhost-autoscale <options>
+
+    # Example (using DreamHost's demo account):
+    dreamhost-autoscale --key=6SHU5P2HLDAYECUM --ps=ps7093 --dry
+
+=head1 OPTIONS
+
+=over
+
+=item --key
+
+dreamhost api key
+
+=item --ps
+
+vps name
+
+=item --min
+
+minimum memory (default: 300)
+
+=item --max
+
+maximum memory (default: 600)
+
+=item --dry
+
+print what would be done but don't change anything
+
+=back
+
+=head1 DEPENDENCIES
+
+WWW::DreamHost::API
+
+=head1 AUTHOR
+
+Nelson Ferraz <nferraz@gmail.com>
+
+based on Serguei Trouchelle's WWW::DreamHost::API
+
+=head1 LICENSE AND COPYRIGHT
+
+This script is distributed under the same terms as Perl itself.
+
+Copyright (c) 2012 Nelson Ferraz
