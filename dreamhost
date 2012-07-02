@@ -1,0 +1,153 @@
+#!/usr/bin/env perl -T
+
+use strict;
+use warnings;
+
+use List::MoreUtils qw/zip/;
+use Pod::Usage;
+use WWW::DreamHost::API;
+use YAML;
+
+our $VERSION = 0.1;
+
+my $command_name = shift @ARGV || 'help';
+
+if ($command_name eq 'help' and not @ARGV) {
+    pod2usage(1);
+}
+
+my $API_KEY = $ENV{DREAMHOST_API_KEY};
+
+if (!$API_KEY) {
+    die "$0: Please set the DREAMHOST_API_KEY environment variable with your API key!\n";
+}
+
+my $api = WWW::DreamHost::API->new($API_KEY);
+my $commands = $api->command('api-list_accessible_cmds');
+
+my %cmd2args = map { $_->{cmd} => { args => $_->{args}, optargs => $_->{optargs} } } @{ $commands->{data} };
+
+if ($command_name eq 'list' or $command_name eq 'help') {
+    print_list(@ARGV);
+} elsif ($cmd2args{$command_name}) {
+    my $res = execute_remote_call($command_name, @ARGV);
+    print ref $res ? Dump($res) : $res;
+} else {
+    die "$0: Unknown command '$command_name'\n";
+}
+
+sub execute_remote_call {
+    my @values = @_;
+
+    my $cmd_name = shift @values;
+
+    if (!exists $cmd2args{$cmd_name}) {
+        die "$0: Unknown command '$cmd_name'\n";
+    }
+
+    my $cmd = $cmd2args{$cmd_name};
+
+    my @args     = grep { $_ !~ /see_docs/ } ref $cmd->{args}    ? @{$cmd->{args}}    : $cmd->{args};
+    my @optargs  = grep { $_ !~ /see_docs/ } ref $cmd->{optargs} ? @{$cmd->{optargs}} : $cmd->{optargs};
+
+    my @fullargs = (@args,@optargs);
+
+    my %args = scalar @values == scalar @args     ? zip( @args, @values)
+             : scalar @values == scalar @fullargs ? zip( @fullargs, @values)
+             : die "$0: Invalid arguments for command '$cmd_name'\n";
+
+    my $res = $api->command( $cmd_name, %args );
+
+    return $res;
+}
+
+sub print_list {
+    my $filter = shift;
+
+    if ($filter) {
+        $filter =~ s/[^\w\-]//gx;
+    }
+
+    for my $cmd (@{$commands->{data}}) {
+        my $cmd_name = $cmd->{cmd};
+        next if $filter and $cmd_name !~ /$filter/x;
+
+        my @args     = grep { $_ !~ /see_docs/ } ref $cmd->{args}    ? @{$cmd->{args}}    : $cmd->{args};
+        my @optargs  = grep { $_ !~ /see_docs/ } ref $cmd->{optargs} ? @{$cmd->{optargs}} : $cmd->{optargs};
+        print join(" ",
+            $cmd->{cmd},
+            (map { "<$_>" } @args),
+            (map { "[$_]" } @optargs )
+        ), "\n";
+    }
+
+    return;
+}
+
+__END__
+
+=head1 NAME
+
+dreamhost - command-line tool to access DreamHost API
+
+=head1 DESCRIPTION
+
+This tool gives you access to dreamhost API.
+
+To be able to use it you must set the DREAMHOST_API_KEY environment
+variable with your API key. If you still don't have a key, get one
+here:
+
+https://panel.dreamhost.com/index.cgi?tree=home.api
+
+=head1 CONFIGURATION
+
+Set DREAMHOST_API_KEY environment variable with your DreamHost API
+key.
+
+If you would like to test the DreamHost API without having your own
+account, you may use the API Key 6SHU5P2HLDAYECUM This account only
+has access to "list" functions however (and only user-list_users_no_pw,
+not user-list_users) .. as well as dreamhost_ps-set_size,
+dreamhost_ps-set_settings, and dreamhost_ps-reboot to ps7093.
+
+    export DREAMHOST_API_KEY=6SHU5P2HLDAYECUM
+
+=head1 USAGE
+
+dreamhost <cmd> <options>
+
+Examples:
+
+    dreamhost list          # list available commands
+    dreamhost list mysql    # list commands matching "mysql"
+    dreamhost list ps       # list commands matching "ps"
+
+IMPORTANT: You must set the DREAMHOST_API_KEY environment variable with your
+DreamHost API key.
+
+More information:
+
+    perldoc dreamhost
+    man dreamhost
+
+=head1 MANDATORY ARGUMENTS
+
+Mandatory arguments are marked with <...>, while optional arguments
+are indicated with [...].
+
+=head1 DEPENDENCIES
+
+WWW::DreamHost::API
+
+=head1 AUTHOR
+
+Nelson Ferraz <nferraz@gmail.com>
+
+based on Serguei Trouchelle's WWW::DreamHost::API
+
+=head1 LICENSE AND COPYRIGHT
+
+This script is distributed under the same terms as Perl itself.
+
+Copyright (c) 2012 Nelson Ferraz
