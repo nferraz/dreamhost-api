@@ -4,9 +4,13 @@ use strict;
 use warnings;
 
 use List::MoreUtils qw/zip/;
+use Getopt::Long;
 use Pod::Usage;
 use WWW::DreamHost::API;
+
+use Data::Dumper;
 use YAML;
+use JSON;
 
 our $VERSION = 0.1;
 
@@ -16,14 +20,38 @@ if ($command_name eq 'help' and not @ARGV) {
     pod2usage(1);
 }
 
-my $API_KEY = $ENV{DREAMHOST_API_KEY};
+my %serialize = (
+    dumper => \&Data::Dumper::Dumper,
+    yaml   => \&YAML::Dump,
+    json   => \&JSON::to_json,
+);
+
+my %opt = (
+    'format' => 'yaml',
+    'key'    => '',
+);
+
+GetOptions(
+    \%opt,
+    'format|f=s',
+    'key|k=s',
+);
+
+my $API_KEY = $opt{key} || $ENV{DREAMHOST_API_KEY};
 
 if (!$API_KEY) {
     die "$0: Please set the DREAMHOST_API_KEY environment variable with your API key!\n";
 }
 
+my $format = $opt{format} || 'yaml';
+
+if (!$serialize{$format}) {
+    die "$0: Unknown format '$format'\n";
+}
+
 my $api = WWW::DreamHost::API->new($API_KEY);
 my $commands = $api->command('api-list_accessible_cmds');
+check($commands);
 
 my %cmd2args = map { $_->{cmd} => { args => $_->{args}, optargs => $_->{optargs} } } @{ $commands->{data} };
 
@@ -31,7 +59,8 @@ if ($command_name eq 'list' or $command_name eq 'help') {
     print_list(@ARGV);
 } elsif ($cmd2args{$command_name}) {
     my $res = execute_remote_call($command_name, @ARGV);
-    print ref $res ? Dump($res) : $res;
+    check($res);
+    print ref $res ? $serialize{$format}->($res) : $res;
 } else {
     die "$0: Unknown command '$command_name'\n";
 }
@@ -82,6 +111,13 @@ sub print_list {
     }
 
     return;
+}
+
+sub check {
+    my $res = shift;
+    if ($res->{result} eq 'error') {
+        die "Error: ", $res->{data}, "\n";
+    }
 }
 
 __END__
