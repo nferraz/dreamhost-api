@@ -5,6 +5,7 @@ use warnings;
 
 use Data::Dumper;
 use Getopt::Long;
+use Sys::Hostname;
 use WWW::DreamHost::API;
 
 my %opt = (
@@ -19,12 +20,15 @@ GetOptions(
     'minimum|min=i',
     'maximum|max=i',
     'key|k=s',
-    'ps|p=s',
+    'ps|hostname|host|p|h=s',
     'dry_run|dry',
 );
 
 my $API_KEY = $opt{key} || $ENV{DREAMHOST_API_KEY} || die "Please specify the API key\n";
-my $ps      = $opt{ps}  || die "Please specify the ps\n";
+
+my $ps = $opt{ps}                 ? $opt{ps}
+       : hostname =~ /^ps[0-9]+$/ ? hostname
+                                  : die "Please specify a hostname";
 
 my $dreamhost = WWW::DreamHost::API->new($API_KEY);
 
@@ -40,7 +44,7 @@ my $configured_memory = $size->{data}->[-1]->{memory_mb};
 my $new_size = resize( $used_memory, $configured_memory );
 
 if ($new_size == $configured_memory) {
-    warn "Nothing to do!\n";
+    warn "$0: Nothing to do!\n";
     exit;
 }
 
@@ -112,7 +116,7 @@ dreamhost api key
 
 =item --ps
 
-vps name
+vps name (default: this hostname)
 
 =item --min
 
@@ -124,7 +128,7 @@ maximum memory (default: 600)
 
 =item --dry
 
-print what would be done but don't change anything
+dry-run; print what would be done but don't change anything
 
 =back
 
