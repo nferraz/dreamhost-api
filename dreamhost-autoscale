@@ -34,14 +34,10 @@ my $ps = $opt{ps}                 ? $opt{ps}
        : hostname =~ /^ps[0-9]+$/ ? hostname
                                   : die "Please specify a hostname";
 
-my $used_memory = used_memory();
-
 my $dreamhost = WWW::DreamHost::API->new($API_KEY);
 
-my $size  = $dreamhost->command( 'dreamhost_ps-list_size_history', ps => $ps );
-check($size);
-
-my $configured_memory = $size->{data}->[-1]->{memory_mb};
+my $used_memory       = used_memory();
+my $configured_memory = configured_memory();
 
 my $new_size = new_size( $used_memory, $configured_memory );
 
@@ -97,6 +93,15 @@ sub used_memory {
     my ($total,$used,$free) = $mem_str =~ m{Mem:\s+(\d+)\s+(\d+)\s+(\d+)};
 
     return int($used/1000);
+}
+
+sub configured_memory {
+    my $size  = $dreamhost->command( 'dreamhost_ps-list_size_history', ps => $ps );
+    check($size);
+
+    my $configured_memory = $size->{data}->[-1]->{memory_mb};
+
+    return $configured_memory;
 }
 
 __END__
