@@ -43,7 +43,7 @@ check($size);
 
 my $configured_memory = $size->{data}->[-1]->{memory_mb};
 
-my $new_size = resize( $used_memory, $configured_memory );
+my $new_size = new_size( $used_memory, $configured_memory );
 
 if ($opt{dry_run}) {
     print "configured: $configured_memory\nused: $used_memory\nnew size: $new_size\n";
@@ -68,7 +68,7 @@ sub check {
     }
 }
 
-sub resize {
+sub new_size {
     my ( $used, $configured ) = @_;
 
     # new memory rounded to 50MB
