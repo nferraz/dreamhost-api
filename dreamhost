@@ -120,8 +120,6 @@ sub check {
     }
 }
 
-__END__
-
 =head1 NAME
 
 dreamhost - command-line tool to access DreamHost API
@@ -187,3 +185,5 @@ based on Serguei Trouchelle's WWW::DreamHost::API
 This script is distributed under the same terms as Perl itself.
 
 Copyright (c) 2012 Nelson Ferraz
+
+=cut

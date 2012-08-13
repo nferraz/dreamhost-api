@@ -104,8 +104,6 @@ sub configured_memory {
     return $configured_memory;
 }
 
-__END__
-
 =head1 NAME
 
 dreamhost-autoscale - auto-scale dreamhost vps memory
@@ -171,3 +169,5 @@ based on Serguei Trouchelle's WWW::DreamHost::API
 This script is distributed under the same terms as Perl itself.
 
 Copyright (c) 2012 Nelson Ferraz
+
+=cut
