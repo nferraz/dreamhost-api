@@ -28,8 +28,7 @@ GetOptions(
     'dry_run|dry',
 );
 
-my $API_KEY = $opt{key} || $ENV{DREAMHOST_API_KEY}
-  || die "$0: Specify the API key with --key or DREAMHOST_API_KEY environment variable\n";
+my $API_KEY = $opt{key} || $ENV{DREAMHOST_API_KEY} || die "Please specify the API key\n";
 
 my $ps = $opt{ps}                 ? $opt{ps}
        : hostname =~ /^ps[0-9]+$/ ? hostname
